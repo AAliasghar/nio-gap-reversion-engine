@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  nio_postgres:
+    image: postgres:15
+    container_name: nio_postgres
+    environment:
+      POSTGRES_USER: quant_user
+      POSTGRES_PASSWORD: quant_password
+      POSTGRES_DB: trading_warehouse
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
