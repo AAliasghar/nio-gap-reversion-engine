@@ -33,11 +33,13 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow_db/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      # THE MAGIC LINE: Tells Airflow to install your required packages on startup
+      - _PIP_ADDITIONAL_REQUIREMENTS=yfinance pandas sqlalchemy psycopg2-binary scikit-learn
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
-      - .:/opt/airflow/scripts # Maps your whole project folder
+      - ./scripts:/opt/airflow/scripts # Maps your whole project folder # <-- THIS IS THE FIX. Added the './scripts'
     ports:
       - "8080:8080"
     command: bash -c "airflow db init && airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin && airflow webserver & airflow scheduler"

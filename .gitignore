@@ -1,0 +1,8 @@
+# Ignore logs and runtime files
+logs/
+*.log
+
+# Airflow
+airflow.db
+airflow.cfg
+__pycache__/

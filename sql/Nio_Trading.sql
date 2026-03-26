@@ -56,7 +56,11 @@ WHERE
     -- For dates on or after March 1st, 2026
     ("ny_time" >= '2026-03-01' AND CAST("ny_time" AS TIME) = '04:00:00');
 
------GOLD LAYER-----------------------
+-----GOLD LAYER---------------------------
+------------------------------------------
+DROP VIEW IF EXISTS v_nio_gap_results;
+------------------------------------------
+CREATE VIEW v_nio_gap_results AS
 WITH opening_gaps AS (
     SELECT 
         ny_time as gap_time,
@@ -100,6 +104,9 @@ SELECT
     ) AS category_percentage
 FROM check_points
 ORDER BY gap_time DESC;
+
+----
+SELECT * FROM v_nio_gap_results ;
 
 --How to read these results:
 --Gap %: How much the stock "jumped" overnight.
