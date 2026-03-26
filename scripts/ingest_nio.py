@@ -1,4 +1,4 @@
-from sklearn import pipeline
+# from sklearn import pipeline
 import yfinance as yf
 import pandas as pd
 import logging
