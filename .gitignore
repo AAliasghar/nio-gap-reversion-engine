@@ -6,3 +6,6 @@ logs/
 airflow.db
 airflow.cfg
 __pycache__/
+
+# dbt
+dbt-env/

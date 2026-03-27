@@ -34,7 +34,7 @@ services:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       # THE MAGIC LINE: Tells Airflow to install your required packages on startup
-      - _PIP_ADDITIONAL_REQUIREMENTS=yfinance pandas sqlalchemy psycopg2-binary scikit-learn pyspark
+      - _PIP_ADDITIONAL_REQUIREMENTS=yfinance pandas sqlalchemy psycopg2-binary scikit-learn pyspark dbt-postgres
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
