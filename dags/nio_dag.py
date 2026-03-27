@@ -3,16 +3,26 @@ import os
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
-from scripts.scanner_nio import scan_for_signals
+import pendulum
+from transform_nio_spark import run_spark_transform
 
 # 1. Point Airflow to your project directory so it can find ingest_nio.py
 sys.path.insert(
     0, "/opt/airflow/scripts"
 )  # This should match the volume mapping in docker-compose.yml
+
+
+# 2. NOW import your custom logic
 from ingest_nio import NIODataPipeline
 
+# This calls the logic we wrote for the 69% win-rate strategy
+from scanner_nio import scan_for_signals
 
-# 2. Define the "Worker" function
+# 3. Timezone definition
+local_tz = pendulum.timezone("Europe/Berlin")
+
+
+# 4. Define the "Worker" function
 def run_nio_ingestion():
     CONN = "postgresql://quant_user:quant_password@nio_postgres:5432/trading_warehouse"
     # Note: Inside Docker, 'localhost' might need to be 'host.docker.internal'
@@ -26,15 +36,13 @@ def run_nio_ingestion():
     pipeline.transform_and_load(raw_data, last_ts)
 
 
-# 2. Add a second worker function
+# 4. Add a second worker function
 def run_nio_scanner():
-    # This calls the logic we wrote for the 69% win-rate strategy
-    from scripts.scanner_nio import scan_for_signals
 
     scan_for_signals()
 
 
-# 3. Define the Schedule and Settings
+# 5. Define the Schedule and Settings
 default_args = {
     "owner": "aliasghar",
     "depends_on_past": False,
@@ -46,22 +54,28 @@ with DAG(
     "nio_market_ingestion",
     default_args=default_args,
     description="Fetches NIO 5m data every weekday for Gap Trading",
-    schedule_interval="30 13 * * 1-5",  # 13:30 UTC is 9:30 AM EST (usually)
-    start_date=datetime(2026, 3, 1),
+    schedule_interval="30 9 * * 1-5",  # 09:30 Germany time, Monday‑Friday
+    start_date=datetime(2026, 3, 1, tzinfo=local_tz),  # TZ here`
     catchup=False,
 ) as dag:
 
-    # 4. Define the Task
+    # 6. Define the Task
     ingest_task = PythonOperator(
         task_id="fetch_and_load_nio",
         python_callable=run_nio_ingestion,
     )
 
-    # NEW TASK
+    # Spark Transform TASK
+    spark_transform_task = PythonOperator(
+        task_id="pyspark_silver_transform",
+        python_callable=run_spark_transform,
+    )
+
+    # Scanner TASK
     scanner_task = PythonOperator(
         task_id="analyze_gap_signals",
         python_callable=run_nio_scanner,
     )
 
-    # 5. SET THE DEPENDENCY SO THE SCANNER RUNS AFTER INGESTION
-    ingest_task >> scanner_task
+    # 7. SET THE DEPENDENCY SO THE SCANNER RUNS AFTER INGESTION
+    ingest_task >> spark_transform_task >> scanner_task
