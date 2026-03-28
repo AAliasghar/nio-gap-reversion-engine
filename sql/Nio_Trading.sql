@@ -106,10 +106,14 @@ FROM check_points
 ORDER BY gap_time DESC;
 
 ----
-SELECT * FROM v_nio_gap_results ;
+SELECT * FROM  V_NIO_GAP_RESULTS;
 
 --How to read these results:
 --Gap %: How much the stock "jumped" overnight.
 --Pct of Gap Filled: If this is 100%, the price returned exactly to yesterday's close by 10:30 AM. If it's 50%, it moved halfway back.
 --The Goal: We are looking for consistency. If NIO has a "Full Fill" or "Partial Fill" 70% of the time, you have a high-probability trading signal.
+
+SELECT * FROM trading_warehouse.public.bronze_nio_prices   order by "DATETIME" desc ;
+--
+SELECT * FROM trading_warehouse.public.silver_nio_prices   order by "timestamp" desc ;
 

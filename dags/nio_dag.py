@@ -4,19 +4,20 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 import pendulum
+
+
+# 1. FIRST: Point Airflow to your project directory so it can find ingest_nio.py
+# This MUST happen before importing your custom scripts
+sys.path.insert(0, "/opt/airflow/scripts")
+
+# 2. SECOND:  import your custom logic
+# Python can now find these because we gave it the "map" above
 from transform_nio_spark import run_spark_transform
-
-# 1. Point Airflow to your project directory so it can find ingest_nio.py
-sys.path.insert(
-    0, "/opt/airflow/scripts"
-)  # This should match the volume mapping in docker-compose.yml
-
-
-# 2. NOW import your custom logic
 from ingest_nio import NIODataPipeline
 
 # This calls the logic we wrote for the 69% win-rate strategy
 from scanner_nio import scan_for_signals
+
 
 # 3. Timezone definition
 local_tz = pendulum.timezone("Europe/Berlin")

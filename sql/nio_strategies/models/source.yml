@@ -1,0 +1,22 @@
+version: 2
+
+sources:
+  - name: market_data
+    database: trading_warehouse
+    schema: public
+    tables:
+      - name: silver_nio_prices  # This is the table PySpark will create
+        description: "Silver layer table for NIO stock prices, created by PySpark"
+        columns:
+          - name: date
+            description: "The date of the stock price"
+          - name: open
+            description: "The opening price of the stock"
+          - name: high
+            description: "The highest price of the stock during the day"
+          - name: low
+            description: "The lowest price of the stock during the day"
+          - name: close
+            description: "The closing price of the stock"
+          - name: volume
+            description: "The trading volume of the stock"
