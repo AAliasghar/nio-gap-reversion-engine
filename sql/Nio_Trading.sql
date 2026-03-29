@@ -27,10 +27,14 @@ WITH base_calculations AS (
         "VOLUME",
         -- Get the Close from exactly 1 row ago (the previous 5-min candle)
         LAG("CLOSE", 1) OVER (ORDER BY "DATETIME") as prev_candle_close,
-        AVG("CLOSE") OVER (ORDER BY "DATETIME" ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) as sma_20, --20 candles -> 5 minutes
-         -- Calculate 20-period Volume Weighted Moving Average
-        SUM("CLOSE" * "VOLUME") OVER (ORDER BY "DATETIME" ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) as weighted_sum, --20 candles
-        SUM("VOLUME") OVER (ORDER BY "DATETIME" ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) as total_vol --20 candles
+        AVG("CLOSE") OVER (ORDER BY "DATETIME" ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) as sma_20_m, --20 candles -> 5 minutes --> 100 mins
+         -- Calculate 20-period Volume Weighted Moving Average 5 mins candle
+        SUM("CLOSE" * "VOLUME") OVER (ORDER BY "DATETIME" ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) as weighted_sum_m, --20 candles
+        SUM("VOLUME") OVER (ORDER BY "DATETIME" ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) as total_vol_m,--20 candles
+         -- Calculate 20-period Volume Weighted Moving Average -20 days
+        AVG("CLOSE") OVER (ORDER BY "DATETIME" ROWS BETWEEN 1559 PRECEDING AND CURRENT ROW) as sma_20_d, --20 candles -> daily
+        SUM("CLOSE" * "VOLUME") OVER (ORDER BY "DATETIME" ROWS BETWEEN 1559 PRECEDING AND CURRENT ROW) as weighted_sum_d, --20 candles
+        SUM("VOLUME") OVER (ORDER BY "DATETIME" ROWS BETWEEN 1559 PRECEDING AND CURRENT ROW) as total_vol_d --20 candles
     FROM bronze_nio_prices
 )
 SELECT 
@@ -44,6 +48,22 @@ SELECT
 	ROUND( (("OPEN"::NUMERIC - prev_candle_close::NUMERIC) / NULLIF(prev_candle_close, 0)::NUMERIC) * 100, 2 ) * -1 AS gap_pct
 FROM base_calculations
 ORDER BY "DATETIME" DESC;
+------------------------------------------
+-----Volume‑Weighted Average Price per day 
+WITH daily_vwap AS (
+    SELECT 
+        DATE("DATETIME" AT TIME ZONE 'America/New_York') AS trade_date,
+        SUM("CLOSE" * "VOLUME") / NULLIF(SUM("VOLUME"), 0) AS vwap
+    FROM bronze_nio_prices
+    WHERE "VOLUME" > 0
+    GROUP BY DATE("DATETIME" AT TIME ZONE 'America/New_York')
+)
+SELECT 
+    trade_date,
+    vwap,
+    AVG(vwap) OVER (ORDER BY trade_date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS vwma_20d
+FROM daily_vwap
+ORDER BY trade_date DESC ;
 
 
 ---------Filter for Pre Market Time 

@@ -6,7 +6,7 @@ import sys
 
 # Force the JAVA_HOME path inside the script (in case it's not picked up from the environment)
 os.environ["JAVA_HOME"] = (
-    "/usr/lib/jvm/java-11-openjdk-amd64"  # Match your docker exec version
+    "/usr/lib/jvm/java-11-openjdk-amd64"  # Match docker exec version
 )
 os.environ["PYSPARK_PYTHON"] = sys.executable
 os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
