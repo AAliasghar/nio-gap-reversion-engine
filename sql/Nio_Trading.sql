@@ -1,8 +1,9 @@
 -----BRONZE LAYER----------------
 --Raw Data
 SELECT * FROM trading_warehouse.public.bronze_nio_prices order by "DATETIME" desc  ;
-
----
+----
+CREATE SCHEMA IF NOT EXISTS nio_strategy;
+----
 TRUNCATE TABLE bronze_nio_prices;
 --This ensures that if the script tries to save the same 5-minute candle twice, the database will just say "No thanks" instead of making a mess.
 ALTER TABLE bronze_nio_prices ADD CONSTRAINT unique_datetime UNIQUE ("DATETIME");
@@ -10,6 +11,8 @@ ALTER TABLE bronze_nio_prices ADD CONSTRAINT unique_datetime UNIQUE ("DATETIME")
 ------------------------------------------------
 ALTER TABLE trading_warehouse.public.bronze_nio_prices 
 RENAME COLUMN "EXTRACTED_AT" TO "LOAD_TIME";
+
+SELECT * FROM trading_warehouse.public_nio_strategy.gold_gap_signals ;
 
 
 ---SILVER LAYER --------------------------
@@ -142,6 +145,8 @@ SELECT *, ((CLOSE -sma_20_daily)/sma_20_daily) * 100 AS SMA_deviation_per  , (CL
     FROM silver_nio_prices 
     ORDER BY "timestamp"  DESC 
     LIMIT 100;
+
+
      
      
 --     CREATE VIEW GOLD_nio_prices AS
@@ -178,4 +183,6 @@ WHERE
 --    AND (high - low) / sma_20_daily < 0.05  -- Example: Filter out days with >5% intraday volatility
     -- 6. Optional: Add a filter to ensure the gap occurs at market open (
     AND CAST("timestamp" AS TIME) = '04:00:00' ;
+
+SELECT * FROM trading_warehouse.nio_strategy.gold_gap_signals ;
 
