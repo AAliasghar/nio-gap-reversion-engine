@@ -32,7 +32,7 @@ def run_spark_transform():
 
     # 3.  Read bronze 5‑min data from Postgres
     df = spark.read.jdbc(
-        url=db_url, table="bronze_nio_prices", properties=db_properties
+        url=db_url, table="nio_strategy.bronze_nio_prices", properties=db_properties
     )
 
     # Select and rename columns for consistency
@@ -80,25 +80,10 @@ def run_spark_transform():
         "vol_ma_20_daily",
     )
 
-    # # Define the Windows
-    # # Window 1: Last 20 candles (100 minutes)
-    # short_window = Window.orderBy("timestamp").rowsBetween(-19, 0)
-
-    # # Window 2: Last 1560 candles (Approximately 20 Trading Days)
-    # daily_window = Window.orderBy("timestamp").rowsBetween(-1559, 0)
-
-    # # 4.  Apply Transformations
-    # df_silver = (
-    #     df.withColumn("sma_20_intraday", F.avg("close").over(short_window))
-    #     .withColumn("vol_ma_20_intraday", F.avg("volume").over(short_window))
-    #     .withColumn("sma_20_daily", F.avg("close").over(daily_window))
-    #     .withColumn("vol_ma_20_daily", F.avg("volume").over(daily_window))
-    # )
-
     # 5. Write to "Silver" Table
     df_silver.write.jdbc(
         url=db_url,
-        table="silver_nio_prices",
+        table="nio_strategy.silver_nio_prices",
         mode="overwrite",
         properties=db_properties,
     )

@@ -3,9 +3,9 @@ version: 2
 sources:
   - name: market_data
     database: trading_warehouse
-    schema: public
+    schema: nio_strategy
     tables:
-      - name: silver_nio_prices  # This is the table PySpark will create
+      - name: silver_nio_prices # This is the table PySpark will create
         description: "Silver layer table for NIO stock prices, created by PySpark"
         columns:
           - name: date
