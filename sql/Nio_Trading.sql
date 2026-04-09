@@ -19,6 +19,7 @@ SELECT * FROM trading_warehouse.public_nio_strategy.gold_gap_signals ;
 ------------------------------------------
 DROP VIEW IF EXISTS v_nio_gap_strategy;
 ------------------------------------------
+
 CREATE VIEW v_nio_gap_strategy AS
 WITH base_calculations AS (
     SELECT 
@@ -38,7 +39,7 @@ WITH base_calculations AS (
         AVG("CLOSE") OVER (ORDER BY "DATETIME" ROWS BETWEEN 1559 PRECEDING AND CURRENT ROW) as sma_20_d, --20 candles -> daily
         SUM("CLOSE" * "VOLUME") OVER (ORDER BY "DATETIME" ROWS BETWEEN 1559 PRECEDING AND CURRENT ROW) as weighted_sum_d, --20 candles
         SUM("VOLUME") OVER (ORDER BY "DATETIME" ROWS BETWEEN 1559 PRECEDING AND CURRENT ROW) as total_vol_d --20 candles
-    FROM bronze_nio_prices
+    FROM trading_warehouse.nio_strategy.bronze_nio_prices
 )
 SELECT 
     "DATETIME",
@@ -136,16 +137,16 @@ SELECT * FROM  V_NIO_GAP_RESULTS;
 --Pct of Gap Filled: If this is 100%, the price returned exactly to yesterday's close by 10:30 AM. If it's 50%, it moved halfway back.
 --The Goal: We are looking for consistency. If NIO has a "Full Fill" or "Partial Fill" 70% of the time, you have a high-probability trading signal.
 
-SELECT * FROM trading_warehouse.public.bronze_nio_prices   order by "DATETIME" desc ;
+SELECT * FROM trading_warehouse.nio_strategy.bronze_nio_prices  order by "DATETIME" desc ;
 --
-SELECT * FROM trading_warehouse.public.silver_nio_prices   order by "timestamp" desc ;
+SELECT "timestamp", "open", high, low, "close", volume, sma_20, vol_ma_20, vwap_20, daily_cumulative_vol, ema_20 FROM trading_warehouse.nio_strategy.silver_nio_prices   order by "timestamp" desc ;
+
 SELECT CURRENT_TIME;
 
 SELECT *, ((CLOSE -sma_20_daily)/sma_20_daily) * 100 AS SMA_deviation_per  , (CLOSE -sma_20_daily) AS SMA_deviation_val
     FROM silver_nio_prices 
     ORDER BY "timestamp"  DESC 
     LIMIT 100;
-
 
      
      
@@ -156,7 +157,7 @@ WITH gap_calculation AS (
         -- Calculate the % gap from yesterday's close to today's open
         ((open - LAG(close) OVER (ORDER BY timestamp)) / LAG(close) OVER (ORDER BY timestamp)) * 100 AS gap_pct
     -- Expected columns in 'silver_nio_prices': timestamp, open, high, low, close, volume, sma_20_daily, vol_ma_20_daily
-    FROM silver_nio_prices
+    FROM trading_warehouse.nio_strategy.silver_nio_prices 
 )
 ---
 SELECT 
@@ -183,6 +184,83 @@ WHERE
 --    AND (high - low) / sma_20_daily < 0.05  -- Example: Filter out days with >5% intraday volatility
     -- 6. Optional: Add a filter to ensure the gap occurs at market open (
     AND CAST("timestamp" AS TIME) = '04:00:00' ;
+DROP TABLE public.bronze_nio_prices;
+SELECT  FROM trading_warehouse.nio_strategy.gold_gap_signals ;
+SELECT *  FROM trading_warehouse.public.bronze_nio_prices ORDER BY "DATETIME" DESC ;
+SELECT *  FROM trading_warehouse.nio_strategy.bronze_nio_prices ORDER BY "DATETIME" DESC ;
+SELECT * FROM trading_warehouse.nio_strategy.silver_nio_prices ORDER BY "timestamp" DESC ;
+--------------------------------
+------------------------------
+WITH timezone_adj AS (
+    SELECT
+        *,
+        "timestamp" AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York' AS ny_time,
+        ("timestamp" AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York')::date AS trading_date
+    FROM trading_warehouse.nio_strategy.silver_nio_prices
+),
+daily_summary AS (
+    SELECT
+        trading_date,
+        -- 1. Prices for Gap & Daily SMA
+        (ARRAY_AGG(open ORDER BY ny_time ASC) FILTER (WHERE ny_time::time >= '04:00:00'))[1] AS pre_market_open,
+        (ARRAY_AGG("close" ORDER BY ny_time DESC) FILTER (WHERE ny_time::time <= '16:00:00'))[1] AS regular_close,
+        -- 2. Volume for Vol MA (Sum of all 5-min volume bars in the day)
+        SUM(volume) AS daily_total_volume, 
+        -- 3. VWAP Components (Daily VWAP = Total Value / Total Volume)
+        SUM("close" * volume) / NULLIF(SUM(volume), 0) AS daily_raw_vwap,
+        -- 4. Intraday High/Low for Gap Fill Logic
+        MAX(high) FILTER (WHERE ny_time::time >= '09:30:00' AND ny_time::time <= '16:00:00') AS rth_high,
+        MIN(low) FILTER (WHERE ny_time::time >= '09:30:00' AND ny_time::time <= '16:00:00') AS rth_low
+    FROM timezone_adj
+    GROUP BY trading_date
+)
+,moving_averages AS (
+    SELECT 
+        *,
+        -- Daily Price SMA (20-day)
+        AVG(regular_close) OVER (ORDER BY trading_date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS daily_sma_20,
+        -- Daily Volume MA (20-day)
+        AVG(daily_total_volume) OVER (ORDER BY trading_date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS daily_vol_ma_20,
+        -- Daily VWAP MA (20-day)
+        AVG(daily_raw_vwap) OVER (ORDER BY trading_date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS daily_vwap_20
+    FROM daily_summary
+),
+lagged_features AS (
+    SELECT
+        *,
+        LAG(regular_close) OVER (ORDER BY trading_date) AS prev_regular_close,
+        LAG(daily_sma_20) OVER (ORDER BY trading_date) AS prev_daily_sma_20,
+        LAG(daily_vol_ma_20) OVER (ORDER BY trading_date) AS prev_daily_vol_ma_20,
+        LAG(daily_vwap_20) OVER (ORDER BY trading_date) AS prev_daily_vwap_20
+    FROM moving_averages
+),
+gap_analysis AS (
+    SELECT
+        trading_date,
+        pre_market_open,
+        prev_regular_close,
+        -- Gap Calculations
+        pre_market_open - prev_regular_close AS gap_value,
+        ((pre_market_open - prev_regular_close) / prev_regular_close) * 100 AS gap_percentage,
+        -- Feature: Price vs Daily SMA
+        CASE WHEN pre_market_open > prev_daily_sma_20 THEN 1 ELSE 0 END AS is_above_ma_20,
+        -- Feature: Volume Regime (Is today's pre-market volume higher than the 20-day avg?)
+        -- (Note: You can compare daily_total_volume vs prev_daily_vol_ma_20 here)     
+        -- Feature: Trend Identification
+        CASE WHEN prev_regular_close > prev_daily_sma_20 THEN 'UPWARD' ELSE 'DOWNWARD' END AS daily_trend,
+        -- Target Variable: Gap Fill
+        CASE
+            WHEN pre_market_open > prev_regular_close AND rth_low <= prev_regular_close THEN 1
+            WHEN pre_market_open < prev_regular_close AND rth_high >= prev_regular_close THEN 1
+            ELSE 0
+        END AS gap_filled_flag,
+        -- Metadata for ML
+        prev_daily_vol_ma_20,
+        prev_daily_vwap_20
+    FROM lagged_features
+    WHERE prev_regular_close IS NOT NULL AND pre_market_open IS NOT NULL
+)
+SELECT * FROM gap_analysis;
 
-SELECT * FROM trading_warehouse.nio_strategy.gold_gap_signals ;
+SELECT CHR(9660) AS arrow_down;  
 

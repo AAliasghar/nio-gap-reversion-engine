@@ -1,13 +1,12 @@
-
 # Name your project! Project names should contain only lowercase characters
 # and underscores. A good package name should reflect your organization's
 # name or the intended use of these models
-name: 'nio_strategies'
-version: '1.0.0'
+name: "nio_strategies"
+version: "1.0.0"
 config-version: 2
 
 # This setting configures which "profile" dbt uses for this project.
-profile: 'nio_strategies'
+profile: "nio_strategies"
 
 # These configurations specify where dbt should look for different types of files.
 # The `model-paths` config, for example, states that models in this project can be
@@ -23,13 +22,29 @@ snapshot-paths: ["snapshots"]
 models:
   nio_strategies:
     # This ensures dbt builds your views in the 'nio_strategy' schema
-    +schema: nio_strategy 
-    +materialized: view
+    +schema: nio_strategy
+    +materialized:
+      view
+      # Specific configuration for the gold_gap_signals model
+    gold_gap_signals:
+      +materialized: table # override default – make it a table
+      +column_types: # enforce exactly 2 decimal places
+        open: numeric(18,2)
+        high: numeric(18,2)
+        low: numeric(18,2)
+        close: numeric(18,2)
+        gap_pct: numeric(18,2)
+        sma_20_daily: numeric(18,2)
+        vol_ma_20_daily: numeric(18,2)
+        volume: numeric(18,0)
+        fill_ratio: numeric(18,0)
+        pct_of_gap_filled: numeric(18,2)
+        result: varchar(50)
+        category_percentage: numeric(18,2)
 
-clean-targets:         # directories to be removed by `dbt clean`
+clean-targets: # directories to be removed by `dbt clean`
   - "target"
   - "dbt_packages"
-
 
 # Configuring models
 # Full documentation: https://docs.getdbt.com/docs/configuring-models

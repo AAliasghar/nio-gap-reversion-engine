@@ -17,7 +17,7 @@ def scan_for_signals():
     # 2. Query the Silver View for the most recent day
     query = """
     SELECT *
-    FROM silver_nio_prices 
+    FROM trading_warehouse.nio_strategy.silver_nio_prices
     ORDER BY "timestamp"  DESC 
     LIMIT 1;
     """
@@ -26,7 +26,7 @@ def scan_for_signals():
         df = pd.read_sql(query, engine)
 
         if df.empty:
-            print("📭 No data found in the Silver View.")
+            print("📭 No data found in the Silver table.")
             return
 
         latest = df.iloc[0]

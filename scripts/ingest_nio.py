@@ -4,7 +4,7 @@ import pandas as pd
 import logging
 from sqlalchemy import create_engine
 from datetime import datetime
-import time 
+import time
 
 # --- LOGGING (The "Black Box" Recorder) ---
 logging.basicConfig(
@@ -25,7 +25,7 @@ class NIODataPipeline:
     def get_last_timestamp(self):
         """Checks the database for the most recent data point."""
         try:
-            query = 'SELECT MAX("DATETIME") FROM bronze_nio_prices'
+            query = 'SELECT MAX("DATETIME") FROM trading_warehouse.nio_strategy.bronze_nio_prices'
             result = pd.read_sql(query, self.engine)
             last_ts = result.iloc[0, 0]
             return last_ts
@@ -42,12 +42,16 @@ class NIODataPipeline:
 
             # Determine the start time
             if last_ts:
-                print(f"🔍 Last record found: {last_ts}. Fetching new data since then...")
+                print(
+                    f"🔍 Last record found: {last_ts}. Fetching new data since then..."
+                )
                 # Fetch from last timestamp to now (Includes Extended Hours)
                 df = ticker.history(start=last_ts, interval="5m", prepost=True)
 
             else:
-                print("📝 No records found. Performing initial 60-day load (with Pre/Post market)...")
+                print(
+                    "📝 No records found. Performing initial 60-day load (with Pre/Post market)..."
+                )
                 df = ticker.history(period="60d", interval="5m", prepost=True)
 
             if df.empty:
@@ -96,11 +100,17 @@ class NIODataPipeline:
         print(f"📥 STEP 3: Saving to 'trading_warehouse'...")
         print(f"🧱 Adding {len(df)} brand new price points...")
         df["LOAD_TIME"] = datetime.now()
-        
+
         try:
             # Using 'append' is correct for a warehouse, but since we
             # changed the columns, we might need to 'replace' once.
-            df.to_sql("bronze_nio_prices", self.engine, if_exists="append", index=False)
+            df.to_sql(
+                "bronze_nio_prices",
+                self.engine,
+                if_exists="append",
+                index=False,
+                schema="nio_strategy",
+            )
             print(f"🎉 SUCCESS: Database updated up to {df['DATETIME'].max()}")
 
             # Show a small preview of the "Gap" if applicable
@@ -122,7 +132,9 @@ class NIODataPipeline:
 
 if __name__ == "__main__":
     #  connection string
-    DB_URL = "postgresql://quant_user:quant_password@localhost:5432/trading_warehouse"
+    DB_URL = (
+        "postgresql://quant_user:quant_password@nio_postgres:5432/trading_warehouse"
+    )
 
     # Rename 'pipeline' to 'nio_pipeline' to avoid sklearn conflicts
     nio_pipeline = NIODataPipeline("NIO", DB_URL)

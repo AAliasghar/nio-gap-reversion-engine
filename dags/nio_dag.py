@@ -4,11 +4,13 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 import pendulum
+from pathlib import Path
 
 
 # 1. FIRST: Point Airflow to your project directory so it can find ingest_nio.py
 # This MUST happen before importing your custom scripts
-sys.path.insert(0, "/opt/airflow/scripts")
+sys.path.append("/opt/airflow/scripts")
+
 
 # 2. SECOND:  import your custom logic
 # Python can now find these because we gave it the "map" above

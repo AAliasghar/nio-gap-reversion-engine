@@ -9,3 +9,10 @@ __pycache__/
 
 # dbt
 dbt-env/
+
+# Environments
+venv/
+.env
+
+__pycache__/
+*.py[cod]
