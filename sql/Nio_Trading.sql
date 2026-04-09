@@ -185,10 +185,17 @@ WHERE
     -- 6. Optional: Add a filter to ensure the gap occurs at market open (
     AND CAST("timestamp" AS TIME) = '04:00:00' ;
 DROP TABLE public.bronze_nio_prices;
+SELECT MAX("DATETIME") FROM trading_warehouse.nio_strategy.bronze_nio_prices
 SELECT  FROM trading_warehouse.nio_strategy.gold_gap_signals ;
-SELECT *  FROM trading_warehouse.public.bronze_nio_prices ORDER BY "DATETIME" DESC ;
-SELECT *  FROM trading_warehouse.nio_strategy.bronze_nio_prices ORDER BY "DATETIME" DESC ;
+---
+SELECT *  FROM trading_warehouse.nio_strategy.bronze_nio_prices ORDER BY "DATETIME" DESC ; 
 SELECT * FROM trading_warehouse.nio_strategy.silver_nio_prices ORDER BY "timestamp" DESC ;
+
+  SELECT *
+    FROM trading_warehouse.nio_strategy.silver_nio_prices
+    ORDER BY "timestamp"  DESC 
+    LIMIT 1;
+
 --------------------------------
 ------------------------------
 WITH timezone_adj AS (
@@ -241,7 +248,7 @@ gap_analysis AS (
         prev_regular_close,
         -- Gap Calculations
         pre_market_open - prev_regular_close AS gap_value,
-        ((pre_market_open - prev_regular_close) / prev_regular_close) * 100 AS gap_percentage,
+       ROUND((((pre_market_open - prev_regular_close) / prev_regular_close) * 100)::NUMERIC, 2) AS gap_percentage,
         -- Feature: Price vs Daily SMA
         CASE WHEN pre_market_open > prev_daily_sma_20 THEN 1 ELSE 0 END AS is_above_ma_20,
         -- Feature: Volume Regime (Is today's pre-market volume higher than the 20-day avg?)
@@ -256,11 +263,11 @@ gap_analysis AS (
         END AS gap_filled_flag,
         -- Metadata for ML
         prev_daily_vol_ma_20,
-        prev_daily_vwap_20
+		ROUND(prev_daily_vwap_20::NUMERIC, 2) AS prev_daily_vwap_20
     FROM lagged_features
     WHERE prev_regular_close IS NOT NULL AND pre_market_open IS NOT NULL
 )
-SELECT * FROM gap_analysis;
+SELECT * FROM gap_analysis ORDER BY trading_date DESC ;
 
 SELECT CHR(9660) AS arrow_down;  
 
