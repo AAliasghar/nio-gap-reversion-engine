@@ -5,6 +5,7 @@ from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 import pendulum
 from pathlib import Path
+from airflow.operators.bash import BashOperator
 
 
 # 1. FIRST: Point Airflow to your project directory so it can find ingest_nio.py
@@ -74,6 +75,12 @@ with DAG(
         python_callable=run_spark_transform,
     )
 
+    # DBT TASK - This will run all your dbt models, including the "gold_gap_signals" model that calculates the gap and edge indicators for you
+    dbt_run_task = BashOperator(
+        task_id="dbt_run_models",
+        bash_command="cd /opt/airflow/sql/nio_strategies && dbt run --profiles-dir .",
+    )
+
     # Scanner TASK
     scanner_task = PythonOperator(
         task_id="analyze_gap_signals",
@@ -81,4 +88,4 @@ with DAG(
     )
 
     # 7. SET THE DEPENDENCY SO THE SCANNER RUNS AFTER INGESTION
-    ingest_task >> spark_transform_task >> scanner_task
+    ingest_task >> spark_transform_task >> dbt_run_task >> scanner_task

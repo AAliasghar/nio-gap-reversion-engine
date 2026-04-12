@@ -41,6 +41,7 @@ services:
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
       - ./scripts:/opt/airflow/scripts # Maps your whole project folder # <-- THIS IS THE FIX. Added the './scripts'
+      - ${AIRFLOW_PROJ_DIR:-.}/sql:/opt/airflow/sql # Maps the SQL directory for dbt
     ports:
       - "8080:8080"
     # This simpler command ensures Airflow actually stays running and doesn't exit immediately

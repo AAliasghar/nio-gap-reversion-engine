@@ -1,0 +1,12 @@
+nio_strategies: # This name must match the 'profile:' name in your dbt_project.yml
+  outputs:
+    dev:
+      type: postgres
+      host: nio_postgres
+      user: quant_user
+      password: quant_password
+      port: 5432
+      dbname: trading_warehouse
+      schema: nio_strategy
+      threads: 1
+  target: dev

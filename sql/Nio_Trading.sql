@@ -245,9 +245,9 @@ gap_analysis AS (
     SELECT
         trading_date,
         pre_market_open,
-        prev_regular_close,
+        ROUND(prev_regular_close::NUMERIC,2) prev_regular_close,
         -- Gap Calculations
-        pre_market_open - prev_regular_close AS gap_value,
+        ROUND((pre_market_open - prev_regular_close)::NUMERIC,2) AS gap_value,
        ROUND((((pre_market_open - prev_regular_close) / prev_regular_close) * 100)::NUMERIC, 2) AS gap_percentage,
         -- Feature: Price vs Daily SMA
         CASE WHEN pre_market_open > prev_daily_sma_20 THEN 1 ELSE 0 END AS is_above_ma_20,

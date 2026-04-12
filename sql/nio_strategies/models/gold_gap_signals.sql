@@ -87,4 +87,4 @@ gap_analysis AS (
     WHERE prev_regular_close IS NOT NULL AND pre_market_open IS NOT NULL
 )
 
-SELECT * FROM gap_analysis;
+SELECT * FROM gap_analysis
