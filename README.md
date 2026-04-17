@@ -1,5 +1,72 @@
-# nio-gap-reversion-engine
-This engine identifies intraday gap deviations and calculates Volume-Weighted metrics to predict mean reversion in the first 30 minutes of trading
+📈 NIO Gap Reversion Engine
+📌 Overview
+
+This project implements a quantitative trading strategy focused on gap reversion for equities (e.g. NIO), designed to identify and exploit price inefficiencies between sessions.
+
+The system models how price gaps (overnight or intraday) statistically revert, and provides a framework for signal generation, backtesting, and evaluation.
+
+🧠 Strategy Concept
+
+Gap reversion is based on the hypothesis that:
+
+Large price gaps are often overreactions and tend to partially or fully revert.
+
+This engine:
+
+Detects gap up / gap down events
+Applies entry/exit logic based on reversion thresholds
+Evaluates profitability under different market conditions
+
+This engine identifies intraday gap deviations and calculates Volume-Weighted metrics to predict mean reversion in the first 30 minutes of trading.
+
+🏗️ Architecture
+                ┌────────────────────┐
+                │   Market Data      │
+                │ (OHLC / Intraday)  │
+                └─────────┬──────────┘
+                          │
+                          ▼
+                ┌────────────────────┐
+                │ Gap Detection      │
+                │ (Prev Close vs Open)
+                └─────────┬──────────┘
+                          │
+                          ▼
+                ┌────────────────────┐
+                │ Signal Engine      │
+                │ (Reversion Logic)  │
+                └─────────┬──────────┘
+                          │
+                          ▼
+                ┌────────────────────┐
+                │ Backtesting Engine │
+                │ (PnL, Metrics)     │
+                └─────────┬──────────┘
+                          │
+                          ▼
+                ┌────────────────────┐
+                │ Performance Output │
+                │ (Sharpe, Returns)  │
+                └────────────────────┘
+
+⚙️ Core Features
+
+✅ Gap Detection
+Identifies significant deviations between:
+Previous close
+Current open
+Configurable gap thresholds
+
+✅ Mean Reversion Logic
+Entry conditions based on:
+Gap size
+Direction (long/short bias)
+Exit rules:
+Partial/full reversion
+Time-based exits   
+
+📊 Example Workflow
+Load Data → Detect Gap → Generate Signal → Execute Trade → Evaluate Performance
 
 Step‑by‑step:
 
