@@ -1,4 +1,5 @@
 📈 NIO Gap Reversion Engine
+
 📌 Overview
 
 This project implements a quantitative trading strategy focused on gap reversion for equities (e.g. NIO), designed to identify and exploit price inefficiencies between sessions.
@@ -19,35 +20,6 @@ Evaluates profitability under different market conditions
 
 This engine identifies intraday gap deviations and calculates Volume-Weighted metrics to predict mean reversion in the first 30 minutes of trading.
 
-🏗️ Architecture
-                ┌────────────────────┐
-                │   Market Data      │
-                │ (OHLC / Intraday)  │
-                └─────────┬──────────┘
-                          │
-                          ▼
-                ┌────────────────────┐
-                │ Gap Detection      │
-                │ (Prev Close vs Open)
-                └─────────┬──────────┘
-                          │
-                          ▼
-                ┌────────────────────┐
-                │ Signal Engine      │
-                │ (Reversion Logic)  │
-                └─────────┬──────────┘
-                          │
-                          ▼
-                ┌────────────────────┐
-                │ Backtesting Engine │
-                │ (PnL, Metrics)     │
-                └─────────┬──────────┘
-                          │
-                          ▼
-                ┌────────────────────┐
-                │ Performance Output │
-                │ (Sharpe, Returns)  │
-                └────────────────────┘
 
 ⚙️ Core Features
 
