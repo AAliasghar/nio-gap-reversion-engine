@@ -1,52 +1,33 @@
-version: "3.8"
-services:
-  # --- THE TRADING WAREHOUSE ---
-  nio_postgres:
-    image: postgres:15
-    container_name: nio_postgres
-    environment:
-      - POSTGRES_USER=quant_user
-      - POSTGRES_PASSWORD=quant_password
-      - POSTGRES_DB=trading_warehouse
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+import os
+import sys
 
-  # --- AIRFLOW DATABASE (Internal) ---
-  airflow_db:
-    image: postgres:15
-    environment:
-      - POSTGRES_USER=airflow
-      - POSTGRES_PASSWORD=airflow
-      - POSTGRES_DB=airflow
-    volumes:
-      - airflow_db_data:/var/lib/postgresql/data
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-  # --- AIRFLOW WEBSERVER & SCHEDULER ---
-  airflow:
-    # image: apache/airflow:2.7.1-python3.10
-    # user: root # Still need root for the JRE
-    build: .
-    depends_on:
-      - airflow_db
-      - nio_postgres
-    environment:
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow_db/airflow
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__WEBSERVER__SECRET_KEY=nio_trading_project_secret_123
-    volumes:
-      - ./dags:/opt/airflow/dags
-      - ./logs:/opt/airflow/logs
-      - ./plugins:/opt/airflow/plugins
-      - ./scripts:/opt/airflow/scripts # Maps your whole project folder # <-- THIS IS THE FIX. Added the './scripts'
-      - ${AIRFLOW_PROJ_DIR:-.}/sql:/opt/airflow/sql # Maps the SQL directory for dbt
-    ports:
-      - "8080:8080"
-    # This simpler command ensures Airflow actually stays running and doesn't exit immediately
-    command: bash -c "airflow db init && airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin || true && (airflow scheduler & airflow webserver)"
+from scripts.config import get_database_url
 
-volumes:
-  postgres_data:
-  airflow_db_data:
+
+def test_database_url_supports_env_overrides(monkeypatch):
+    monkeypatch.setenv("NIO_DB_HOST", "example-host")
+    monkeypatch.setenv("NIO_DB_PORT", "6543")
+    monkeypatch.setenv("NIO_DB_NAME", "example_db")
+    monkeypatch.setenv("NIO_DB_USER", "example_user")
+    monkeypatch.setenv("NIO_DB_PASSWORD", "example_password")
+
+    url = get_database_url()
+
+    assert "example-host" in url
+    assert "6543" in url
+    assert "example_db" in url
+    assert "example_user" in url
+    assert "example_password" in url
+
+
+def test_ema_calculation_is_not_a_flat_last_value():
+    import pandas as pd
+
+    series = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
+    ema = series.ewm(span=3, adjust=False).mean()
+
+    assert ema.iloc[0] == 1.0
+    assert ema.iloc[1] > 1.0
+    assert ema.iloc[-1] > series.iloc[-2]
