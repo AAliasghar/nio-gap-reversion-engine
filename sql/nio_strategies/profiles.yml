@@ -1,12 +1,46 @@
-nio_strategies: # This name must match the 'profile:' name in your dbt_project.yml
-  outputs:
-    dev:
-      type: postgres
-      host: nio_postgres
-      user: quant_user
-      password: quant_password
-      port: 5432
-      dbname: trading_warehouse
-      schema: nio_strategy
-      threads: 1
-  target: dev
+version: "3.8"
+services:
+  nio_postgres:
+    image: postgres:15
+    container_name: nio_postgres
+    environment:
+      - POSTGRES_USER=${NIO_DB_USER:-quant_user}
+      - POSTGRES_PASSWORD=${NIO_DB_PASSWORD:-quant_password}
+      - POSTGRES_DB=${NIO_DB_NAME:-trading_warehouse}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  airflow_db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=${AIRFLOW_DB_USER:-airflow}
+      - POSTGRES_PASSWORD=${AIRFLOW_DB_PASSWORD:-airflow}
+      - POSTGRES_DB=${AIRFLOW_DB_NAME:-airflow}
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+
+  airflow:
+    build: .
+    depends_on:
+      - airflow_db
+      - nio_postgres
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:-airflow}@${AIRFLOW_DB_HOST:-airflow_db}/${AIRFLOW_DB_NAME:-airflow}
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=nio_trading_project_secret_123
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./scripts:/opt/airflow/scripts
+      - ${AIRFLOW_PROJ_DIR:-.}/sql:/opt/airflow/sql
+    ports:
+      - "8080:8080"
+    command: bash -c "airflow db init && airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin || true && (airflow scheduler & airflow webserver)"
+
+volumes:
+  postgres_data:
+  airflow_db_data:
