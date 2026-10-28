@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+# Repo root on sys.path so tests can `import scripts.<module>`.
+pythonpath = ["."]
+testpaths = ["tests"]

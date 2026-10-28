@@ -1,93 +1,57 @@
-from pyspark.sql import SparkSession
-from pyspark.sql import functions as F
-from pyspark.sql.window import Window
+import pandas as pd
+from sqlalchemy import create_engine
+from datetime import datetime
 
 try:
-    from config import get_db_properties, get_jdbc_url
+    from config import get_database_url
 except ImportError:  # pragma: no cover
-    from scripts.config import get_db_properties, get_jdbc_url
-
-import os
-import sys
-
-os.environ["JAVA_HOME"] = "/usr/lib/jvm/java-11-openjdk-amd64"
-os.environ["PYSPARK_PYTHON"] = sys.executable
-os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
+    from scripts.config import get_database_url
 
 
-def run_spark_transform():
-    spark = (
-        SparkSession.builder.appName("NIO_Silver_Transform")
-        .config("spark.jars.packages", "org.postgresql:postgresql:42.5.0")
-        .getOrCreate()
+def scan_for_signals():
+    db_url = get_database_url()
+    engine = create_engine(db_url)
+
+    print(
+        f"🕵️ Scanning NIO for Gap Signals... [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]"
     )
 
-    db_url = get_jdbc_url()
-    db_properties = get_db_properties()
+    query = """
+    SELECT *
+    FROM nio_strategy.gold_gap_signals
+    ORDER BY trading_date DESC
+    LIMIT 1;
+    """
 
     try:
-        df_bronze = spark.read.jdbc(
-            url=db_url, table="nio_strategy.bronze_nio_prices", properties=db_properties
-        )
+        df = pd.read_sql(query, engine)
 
-        df = df_bronze.select(
-            F.col("DATETIME").alias("timestamp"),
-            F.col("OPEN").cast("double").alias("open"),
-            F.col("HIGH").cast("double").alias("high"),
-            F.col("LOW").cast("double").alias("low"),
-            F.col("CLOSE").cast("double").alias("close"),
-            F.col("VOLUME").cast("long").alias("volume"),
-        )
+        if df.empty:
+            print("📭 No data found in the dbt Analysis table.")
+            return
 
-        win_20 = Window.orderBy("timestamp").rowsBetween(-19, 0)
-        daily_win = (
-            Window.partitionBy(F.to_date("timestamp"))
-            .orderBy("timestamp")
-            .rowsBetween(Window.unboundedPreceding, Window.currentRow)
-        )
+        latest = df.iloc[0]
+        gap_percentage = latest["gap_percentage"]
+        gap_value = latest["gap_value"]
 
-        df = (
-            df.withColumn("sma_20", F.avg("close").over(win_20))
-            .withColumn("vol_ma_20", F.avg("volume").over(win_20))
-            .withColumn(
-                "vwap_20",
-                (
-                    F.sum(F.col("close") * F.col("volume")).over(win_20)
-                    / F.sum("volume").over(win_20)
-                ),
-            )
-            .withColumn("daily_cumulative_vol", F.sum("volume").over(daily_win))
-        )
+        print(f"📊 Latest Opening Gap: {gap_percentage:.2f}%")
 
-        pandas_df = df.toPandas().sort_values("timestamp")
-        pandas_df["ema_20"] = pandas_df["close"].ewm(span=20, adjust=False).mean()
-        df = spark.createDataFrame(pandas_df)
+        if abs(gap_percentage) > 1.0:
+            print("🚨 SIGNAL DETECTED: Significant Gap!")
+            if gap_value > 0:
+                print(
+                    f"📉 DIRECTION: SHORT (Betting on a Fill of {gap_percentage:.2f}%)"
+                )
+            else:
+                print(
+                    f"📈 DIRECTION: LONG (Betting on a Fill of {gap_percentage:.2f}%)"
+                )
+        else:
+            print("😴 No trade today. Gap is too small to meet the 'Edge' criteria.")
 
-        final_df = df.select(
-            "timestamp",
-            "open",
-            "high",
-            "low",
-            "close",
-            "volume",
-            "sma_20",
-            "vol_ma_20",
-            "vwap_20",
-            "daily_cumulative_vol",
-            "ema_20",
-        )
-
-        final_df.write.jdbc(
-            url=db_url,
-            table="nio_strategy.silver_nio_prices",
-            mode="overwrite",
-            properties={**db_properties, "truncate": "true"},
-        )
-
-        print("✅ PySpark Transform Complete.")
-    finally:
-        spark.stop()
+    except Exception as e:
+        raise e
 
 
 if __name__ == "__main__":
-    run_spark_transform()
+    scan_for_signals()

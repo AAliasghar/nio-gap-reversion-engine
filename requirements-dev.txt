@@ -1,0 +1,5 @@
+# What CI needs to run the tests. The pipeline itself runs in Docker
+# (see Dockerfile), which installs Airflow, PySpark and dbt.
+pandas
+pyyaml
+pytest>=8.0
