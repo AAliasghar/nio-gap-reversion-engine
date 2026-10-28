@@ -269,5 +269,19 @@ gap_analysis AS (
 )
 SELECT * FROM gap_analysis ORDER BY trading_date DESC ;
 
-SELECT CHR(9660) AS arrow_down;  
+SELECT
+	trading_date,
+	ROUND(pre_market_open::NUMERIC,2) AS pre_market_open,
+	ROUND(prev_regular_close::NUMERIC,2) AS prev_regular_close,
+	ROUND(gap_value::NUMERIC,2) AS gap_value,
+	ROUND(gap_percentage::NUMERIC,2) AS gap_percentage,
+	ROUND(sma_20_daily::NUMERIC,2) AS sma_20_daily,
+	is_above_ma_20,
+	daily_trend,
+	gap_filled_flag,
+	prev_daily_vol_ma_20,
+	ROUND(prev_daily_vwap_20::NUMERIC,2) AS prev_daily_vwap_20
+FROM
+	trading_warehouse.nio_strategy.gold_gap_signals ORDER BY trading_date DESC ;  
+
 

@@ -4,7 +4,6 @@ import pandas as pd
 import logging
 from sqlalchemy import create_engine
 from datetime import datetime
-import time
 
 # --- LOGGING (The "Black Box" Recorder) ---
 logging.basicConfig(
@@ -34,7 +33,7 @@ class NIODataPipeline:
             return None
 
     def fetch_data(self):
-        print(f"📡 STEP 1: Connecting to Market Data...")
+        print("📡 STEP 1: Connecting to Market Data...")
         try:
             last_ts = self.get_last_timestamp()
             ticker = yf.Ticker(self.symbol)
@@ -60,13 +59,13 @@ class NIODataPipeline:
 
             print(f"✅ SUCCESS: Captured {len(df)} price points for {self.symbol}.")
             # Show a little preview of what we grabbed
-            print(f"\n--- DATA PREVIEW ---")
+            print("\n--- DATA PREVIEW ---")
             print(df[["Open", "Close", "Volume"]].head(3))
-            print(f"--------------------\n")
+            print("--------------------\n")
             return df
         except Exception as e:
             logging.error(f"Fetch failed: {e}")
-            print(f"💥 FATAL ERROR during fetch. Check 'pipeline.log' for details.")
+            print("💥 FATAL ERROR during fetch. Check 'pipeline.log' for details.")
             return pd.DataFrame()
 
     def transform_and_load(self, df, last_ts):
@@ -74,7 +73,7 @@ class NIODataPipeline:
             print("😴 No new data found. Market might be closed or already up-to-date.")
             return
 
-        print(f"🧱 STEP 2: Preparing data for PostgreSQL...")
+        print("🧱 STEP 2: Preparing data for PostgreSQL...")
 
         # 1. Standardize column
         df.reset_index(inplace=True)
@@ -97,7 +96,7 @@ class NIODataPipeline:
             print("✅ Database is already up to date. No new rows to add.")
             return
 
-        print(f"📥 STEP 3: Saving to 'trading_warehouse'...")
+        print("📥 STEP 3: Saving to 'trading_warehouse'...")
         print(f"🧱 Adding {len(df)} brand new price points...")
         df["LOAD_TIME"] = datetime.now()
 
@@ -131,10 +130,13 @@ class NIODataPipeline:
 
 
 if __name__ == "__main__":
-    #  connection string
-    DB_URL = (
-        "postgresql://quant_user:quant_password@nio_postgres:5432/trading_warehouse"
-    )
+    # Connection settings come from the NIO_DB_* env vars (see .env.example).
+    try:
+        from config import get_database_url
+    except ImportError:
+        from scripts.config import get_database_url
+
+    DB_URL = get_database_url()
 
     # Rename 'pipeline' to 'nio_pipeline' to avoid sklearn conflicts
     nio_pipeline = NIODataPipeline("NIO", DB_URL)
