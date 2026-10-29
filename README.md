@@ -40,6 +40,30 @@ dbt_run_models            daily gap, 20-day SMA / volume MA / VWAP MA, trend, ga
 analyze_gap_signals       reads the latest gold row and prints the signal
 ```
 
+### Flowchart
+
+Each Airflow task writes a table, and the next task reads it:
+
+```mermaid
+flowchart TD
+    YF["Yahoo Finance<br/>5-minute NIO prices"] --> T1
+
+    subgraph Airflow["Airflow DAG nio_market_ingestion (Mon–Fri, 09:30 Berlin)"]
+        T1["Ingest new prices<br/>ingest_nio.py"]
+        T2["Add indicators with Spark<br/>transform_nio_spark.py"]
+        T3["Build daily gaps with dbt<br/>gold_gap_signals.sql"]
+        T4["Scan latest day<br/>scanner_nio.py"]
+    end
+
+    subgraph Postgres["PostgreSQL schema nio_strategy"]
+        B[("Bronze: bronze_nio_prices<br/>raw 5-min prices")]
+        S[("Silver: silver_nio_prices<br/>SMA, VWAP, EMA per bar")]
+        G[("Gold: gold_gap_signals<br/>one row per day + gap")]
+    end
+
+    T1 --> B --> T2 --> S --> T3 --> G --> T4 --> OUT["Trade suggestion<br/>fade the gap if over 1%"]
+```
+
 ![Pipeline Architecture](https://github.com/user-attachments/assets/523256e1-3f45-4368-9996-803b2879befd)
 
 ---
