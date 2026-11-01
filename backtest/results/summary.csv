@@ -1,0 +1,4 @@
+side,trades,win_rate_pct,avg_return_pct,avg_win_pct,avg_loss_pct,total_return_pct,worst_trade_pct
+all,362,57.46,-0.09,1.81,-2.66,-32.34,-9.86
+short,215,63.72,0.09,1.76,-2.83,19.63,-9.86
+long,147,48.3,-0.35,1.92,-2.47,-51.97,-6.35
