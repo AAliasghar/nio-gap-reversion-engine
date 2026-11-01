@@ -7,7 +7,7 @@ A data pipeline that studies **opening gaps** in NIO stock: how far the pre-mark
 
 It runs end to end in Docker: **Airflow** schedules the jobs, **yfinance** supplies 5-minute prices, **PySpark** builds the features, **dbt** builds the daily gap table in **PostgreSQL**, and a scanner prints the latest gap signal.
 
-> **Status:** research / learning project. The pipeline produces gap features and a gap-fill label for each day; there is no backtest or performance figure yet (see [Roadmap](#-roadmap)). Nothing here is trading advice.
+> **Status:** research / learning project. The pipeline produces gap features and a gap-fill label for each day, and a [backtest](#-backtest-results) measures how often gaps fill and what the scanner's fade rule would have earned (before costs, it loses slightly). Nothing here is trading advice.
 
 ---
 
@@ -86,7 +86,11 @@ nio-gap-reversion-engine/
 │       ├── models/source.yml
 │       ├── dbt_project.yml
 │       └── profiles.yml           # connection from env vars
-├── tests/                         # pytest (config + project layout checks)
+├── backtest/
+│   ├── gap_backtest.py            # gap-fill rates + fade-rule backtest
+│   ├── data/nio_1h.csv            # saved hourly bars (with pre-market)
+│   └── results/                   # tables shown in this README
+├── tests/                         # pytest (config, project layout, backtest)
 ├── .github/workflows/ci.yml       # CI: compose check + tests
 ├── docker-compose.yml             # Postgres warehouse, Airflow + its DB
 ├── Dockerfile                     # Airflow 2.7 + Java 11 + PySpark + dbt
@@ -146,6 +150,40 @@ One row per trading day:
 
 ---
 
+## 📉 Backtest results
+
+`backtest/gap_backtest.py` applies the same definitions as `gold_gap_signals` to **729 trading days** of hourly NIO bars with pre-market trading (2023-12-05 to 2026-10-30, the most Yahoo offers at this interval). The 5-minute data the pipeline uses only goes back 60 days, too short for a backtest. The bars are saved in `backtest/data/nio_1h.csv`, so the numbers below can be reproduced exactly.
+
+**How often gaps fill** (701 days with a gap; 58.9% filled):
+
+| Gap size | Up gaps: days | Up gaps: filled | Down gaps: days | Down gaps: filled |
+|---|--:|--:|--:|--:|
+| < 1% | 163 | 82.8% | 136 | 60.3% |
+| 1–2% | 107 | 72.0% | 89 | 38.2% |
+| 2–4% | 110 | 48.2% | 46 | 34.8% |
+| ≥ 4% | 33 | 30.3% | 17 | 35.3% |
+
+Up gaps fill much more often than down gaps, and the bigger the gap, the less likely it fills. Trend changes this less: up gaps filled 70% of the time in a downtrend vs 64% in an uptrend; down gaps 51% vs 41%. Full table by trend: `backtest/results/fill_rates.csv`.
+
+**The scanner's fade rule** (gap > 1% → trade against it from the 09:30 open; exit at the previous close if reached, otherwise at the 16:00 close):
+
+| Trades | Count | Win rate | Avg win | Avg loss | Avg per trade | Worst trade |
+|---|--:|--:|--:|--:|--:|--:|
+| Short (fading up gaps) | 215 | 63.7% | +1.76% | −2.83% | **+0.09%** | −9.86% |
+| Long (fading down gaps) | 147 | 48.3% | +1.92% | −2.47% | **−0.35%** | −6.35% |
+| All | 362 | 57.5% | +1.81% | −2.66% | **−0.09%** | −9.86% |
+
+The rule wins more often than it loses, but its losses are bigger than its wins, so **it loses money on average before any costs**. Fading up gaps is roughly break-even; fading down gaps loses. After commissions, slippage and short-borrow fees, both would be worse.
+
+Read with care: one stock, under three years, no stop-loss, no costs, and a trade is skipped when the 09:30 open has already closed the gap (so no pre-market trading). Every trade: `backtest/results/trades.csv`.
+
+```bash
+python backtest/gap_backtest.py             # recompute from the saved bars
+python backtest/gap_backtest.py --refresh   # download the latest 730 days first (numbers will change)
+```
+
+---
+
 ## 🧪 Tests
 
 ```bash
@@ -154,13 +192,14 @@ pytest -v
 docker compose config -q
 ```
 
-The tests check the config module and that each key file holds what its path promises (compose stack, dbt profile, Airflow DAG, Spark job), so a file written to the wrong path fails CI instead of breaking `main`. CI runs them on every push and pull request.
+The tests check the config module and that each key file holds what its path promises (compose stack, dbt profile, Airflow DAG, Spark job), so a file written to the wrong path fails CI instead of breaking `main`. The backtest tests run its calculations on small made-up price bars (gap and fill detection, trade entries and exits). CI runs them on pushes to `main` and on pull requests into `main`.
 
 ---
 
 ## 🎯 Roadmap
 
-- [ ] Backtest the gap-fade rule on the gold table: gap-fill rate by gap size and trend, win rate, profit factor, max drawdown
+- [x] Backtest the gap-fade rule: gap-fill rate by gap size and trend, win rate, average win/loss
+- [ ] Test variations of the rule: only fade up gaps, a stop-loss, costs and slippage
 - [ ] Volume confirmation in the gold model (pre-market volume vs. 20-day average)
 - [ ] dbt tests (not-null, unique `trading_date`, accepted values)
 - [ ] Multi-symbol support (beyond NIO)
@@ -170,7 +209,7 @@ The tests check the config module and that each key file holds what its path pro
 
 ## ⚠️ Disclaimer
 
-**This is a research/educational project, not financial advice.** Trading involves substantial risk of loss, and nothing in this repository has been validated with a backtest or live trading.
+**This is a research/educational project, not financial advice.** Trading involves substantial risk of loss. The backtest above is limited (one stock, under three years, no costs) and shows the rule losing money on average; nothing here has been tested in live trading.
 
 ---
 
