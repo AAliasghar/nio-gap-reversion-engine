@@ -115,7 +115,9 @@ docker compose up --build
 - Airflow UI: http://localhost:8080 (user `admin`, password from `AIRFLOW_ADMIN_PASSWORD`)
 - Warehouse: PostgreSQL on `localhost:5432`, database `trading_warehouse`, schema `nio_strategy`
 
-In the Airflow UI, unpause and trigger the **`nio_market_ingestion`** DAG. The first run loads the last 60 days of 5-minute data (the yfinance limit for this interval); later runs load only new bars.
+In the Airflow UI, unpause and trigger the **`nio_market_ingestion`** DAG. The first run loads the last 60 days of 5-minute data (the yfinance limit for this interval); later runs load only new bars. If the DAG has not run for more than 60 days, the next run loads the last 59 days and logs a warning about the missing days; the gold model does not compute a gap across such a hole.
+
+**Tested end to end** on 2026-11-02 in Docker: all four tasks (ingest → PySpark → dbt → scanner) succeeded, loading 22,826 five-minute bars into bronze and silver and 123 trading days into `gold_gap_signals`.
 
 ### Configuration
 

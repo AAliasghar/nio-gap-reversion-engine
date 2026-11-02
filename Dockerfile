@@ -22,14 +22,17 @@ RUN chmod -R +rX /usr/lib/jvm/java-11-openjdk-amd64
 USER airflow
 
 
-# # 3. Install Python libraries (including PySpark and DBT)
-    RUN pip install --no-cache-dir \
-    yfinance \
-    pandas \
-    sqlalchemy \
-    psycopg2-binary \
-    scikit-learn \
-    pyspark==3.4.1 \
+# 3. Install Python libraries (including PySpark and dbt).
+# Every version is pinned: unpinned packages made the image impossible to rebuild from
+# scratch (pip got stuck resolving today's versions against Airflow's).
+# PySpark 3.5 is needed for pandas 2: with 3.4.1, DataFrame.toPandas() fails on timestamps.
+RUN pip install --no-cache-dir \
+    yfinance==1.2.0 \
+    pandas==2.1.0 \
+    sqlalchemy==1.4.49 \
+    psycopg2-binary==2.9.7 \
+    scikit-learn==1.7.2 \
+    pyspark==3.5.3 \
     dbt-postgres==1.7.0 \
-    dbt-core==1.7.0 
+    dbt-core==1.7.0
 
