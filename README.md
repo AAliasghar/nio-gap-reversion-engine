@@ -221,4 +221,4 @@ MIT. See [LICENSE](LICENSE).
 
 ## 📧 Contact
 
-**Author:** [AAliasghar](https://github.com/AAliasghar) · [Open an issue](https://github.com/AAliasghar/nio-gap-reversion-engine/issues)
+**Author:** Aliasghar Asgharinia ([@AAliasghar](https://github.com/AAliasghar)) · [Open an issue](https://github.com/AAliasghar/nio-gap-reversion-engine/issues)
