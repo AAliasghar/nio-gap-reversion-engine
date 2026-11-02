@@ -5,6 +5,11 @@ import logging
 from sqlalchemy import create_engine
 from datetime import datetime
 
+try:
+    from fetch_window import fetch_start
+except ImportError:  # pragma: no cover
+    from scripts.fetch_window import fetch_start
+
 # --- LOGGING (The "Black Box" Recorder) ---
 logging.basicConfig(
     filename="pipeline.log",  # Saves technical details to a file, not your screen!
@@ -34,39 +39,36 @@ class NIODataPipeline:
 
     def fetch_data(self):
         print("📡 STEP 1: Connecting to Market Data...")
-        try:
-            last_ts = self.get_last_timestamp()
-            ticker = yf.Ticker(self.symbol)
-            # df = ticker.history(period="60d", interval="5m")
+        last_ts = self.get_last_timestamp()
+        ticker = yf.Ticker(self.symbol)
+        start, missing_days = fetch_start(last_ts, pd.Timestamp.now(tz="UTC"))
 
-            # Determine the start time
-            if last_ts:
+        if start is None:
+            print("📝 No records found. Performing initial 60-day load (with Pre/Post market)...")
+            df = ticker.history(period="60d", interval="5m", prepost=True)
+        else:
+            if missing_days:
+                # Yahoo has no 5-minute bars older than 60 days, so this part of history is lost
                 print(
-                    f"🔍 Last record found: {last_ts}. Fetching new data since then..."
+                    f"⚠️ WARNING: last stored bar {last_ts} is older than the 60 days Yahoo serves. "
+                    f"Loading from {start}; {missing_days} days of history are missing."
                 )
-                # Fetch from last timestamp to now (Includes Extended Hours)
-                df = ticker.history(start=last_ts, interval="5m", prepost=True)
-
             else:
-                print(
-                    "📝 No records found. Performing initial 60-day load (with Pre/Post market)..."
-                )
-                df = ticker.history(period="60d", interval="5m", prepost=True)
+                print(f"🔍 Last record found: {last_ts}. Fetching new data since then...")
+            # Includes extended hours
+            df = ticker.history(start=start, interval="5m", prepost=True)
 
-            if df.empty:
-                print("❌ ERROR: No data found. Is the market open?")
-                return pd.DataFrame()
-
-            print(f"✅ SUCCESS: Captured {len(df)} price points for {self.symbol}.")
-            # Show a little preview of what we grabbed
-            print("\n--- DATA PREVIEW ---")
-            print(df[["Open", "Close", "Volume"]].head(3))
-            print("--------------------\n")
-            return df
-        except Exception as e:
-            logging.error(f"Fetch failed: {e}")
-            print("💥 FATAL ERROR during fetch. Check 'pipeline.log' for details.")
+        # Errors from Yahoo or the network are not caught here: they fail the Airflow task
+        if df.empty:
+            print("😴 Yahoo returned no new bars (market closed or already up to date).")
             return pd.DataFrame()
+
+        print(f"✅ SUCCESS: Captured {len(df)} price points for {self.symbol}.")
+        # Show a little preview of what we grabbed
+        print("\n--- DATA PREVIEW ---")
+        print(df[["Open", "Close", "Volume"]].head(3))
+        print("--------------------\n")
+        return df
 
     def transform_and_load(self, df, last_ts):
         if df.empty:
@@ -117,6 +119,7 @@ class NIODataPipeline:
 
         except Exception as e:
             print(f"❌ DATABASE ERROR: {e}")
+            raise  # fail the Airflow task instead of reporting success
 
     def display_gap_report(self, df):
         """Simple terminal output to show price movement."""

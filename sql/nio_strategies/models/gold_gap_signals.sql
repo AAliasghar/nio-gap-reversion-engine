@@ -45,6 +45,7 @@ moving_averages AS (
 lagged_features AS (
     SELECT
         *,
+        LAG(trading_date) OVER (ORDER BY trading_date) AS prev_trading_date,
         LAG(regular_close) OVER (ORDER BY trading_date) AS prev_regular_close,
         LAG(daily_sma_20) OVER (ORDER BY trading_date) AS prev_daily_sma_20,
         LAG(daily_vol_ma_20) OVER (ORDER BY trading_date) AS prev_daily_vol_ma_20,
@@ -85,6 +86,9 @@ gap_analysis AS (
         
     FROM lagged_features
     WHERE prev_regular_close IS NOT NULL AND pre_market_open IS NOT NULL
+      -- Only compare with a previous trading day at most 5 calendar days back (weekends,
+      -- holidays). Across a hole in the stored history the "previous close" would be stale.
+      AND trading_date - prev_trading_date <= 5
 )
 
 SELECT * FROM gap_analysis
