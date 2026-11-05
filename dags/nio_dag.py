@@ -20,7 +20,7 @@ from scanner_nio import scan_for_signals
 
 
 # 3. Timezone definition
-local_tz = pendulum.timezone("Europe/Berlin")
+local_tz = pendulum.timezone("America/New_York")
 
 
 # 4. Define the "Worker" function
@@ -52,7 +52,7 @@ with DAG(
     "nio_market_ingestion",
     default_args=default_args,
     description="Fetches NIO 5m data every weekday for Gap Trading",
-    schedule_interval="30 9 * * 1-5",  # 09:30 Germany time, Monday‑Friday
+    schedule_interval="0 5 * * 1-5",  # 05:00 New York time, Monday‑Friday
     start_date=datetime(2026, 3, 1, tzinfo=local_tz),  # TZ here`
     catchup=False,
 ) as dag:
