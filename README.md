@@ -26,7 +26,7 @@ The scanner then applies a simple rule to the latest day: if the gap is larger t
 ## 🏗 Architecture (medallion layers)
 
 ```
-Airflow DAG "nio_market_ingestion" (Mon–Fri, 09:30 Europe/Berlin)
+Airflow DAG "nio_market_ingestion" (Mon–Fri, 05:00 New York)
 
 fetch_and_load_nio        yfinance 5-min OHLCV (incl. pre/post market)
         │                 → nio_strategy.bronze_nio_prices         (Bronze)
@@ -48,7 +48,7 @@ Each Airflow task writes a table, and the next task reads it:
 flowchart TD
     YF["Yahoo Finance<br/>5-minute NIO prices"] --> T1
 
-    subgraph Airflow["Airflow DAG nio_market_ingestion (Mon–Fri, 09:30 Berlin)"]
+    subgraph Airflow["Airflow DAG nio_market_ingestion (Mon–Fri, 05:00 New York)"]
         T1["Ingest new prices<br/>ingest_nio.py"]
         T2["Add indicators with Spark<br/>transform_nio_spark.py"]
         T3["Build daily gaps with dbt<br/>gold_gap_signals.sql"]
